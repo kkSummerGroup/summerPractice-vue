@@ -142,7 +142,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import request from '@/api'
 import {API_BASE_URL} from "@/tool/config";
 
 export default {
@@ -193,18 +193,14 @@ export default {
   methods: {
     async getAllProjectClassNames() {
       try {
-        const response = await axios.get(`${API_BASE_URL}/bloodTest/getAllProjectClassNames`, {
-          headers: {
-            'Content-Type': 'application/json' // 必须明确指定
-          }
-        });
-        this.classes = response.data;
-        // console.log("项目分类", this.classes)
+        const response = await request.get('/bloodTest/getAllProjectClassNames')
+        this.classes = response
+        // 如果返回的是 {code, data} 格式，用下面这行
+        // this.classes = response.data || response
         this.classIds = this.classes.map(item => item.projectClassId);
         this.classNames = this.classes.map(item => item.projectClassName);
       } catch (error) {
         console.error('错误:', error);
-      } finally {
       }
     },
 
@@ -213,23 +209,17 @@ export default {
       this.activeClassId = this.classIds[this.classNames.indexOf(type)];
       this.queryProject.projectClassName = type;
       try {
-        // console.log(this.queryProject)
-        const response = await axios.post(`${API_BASE_URL}/bloodTest/getBloodTestProject`, this.queryProject, {
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          params: { // 分页参数自动拼接到URL
+        const response = await request.post('/bloodTest/getBloodTestProject', this.queryProject, {
+          params: {
             pageNum: this.pageNum,
             pageSize: this.pageSize
           }
         });
         console.log("项目名称", response)
-        this.total = response.data.total;
-        this.allProjectData = response.data.records;
-        // this.queryProject.total = response.data.total;
+        this.total = response.total;
+        this.allProjectData = response.records;
       } catch (error) {
         console.error('错误:', error);
-      } finally {
       }
     },
 
@@ -252,17 +242,7 @@ export default {
 
     async saveProjectClass() {
       try {
-        // console.log(this.addProjectClassForm.projectClassName);
-        // 等待 POST 请求完成
-        await axios.post(
-          `${API_BASE_URL}/bloodTest/saveProjectClass?projectClass=${this.addProjectClassForm.projectClassName}`,
-          null,
-          {
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          }
-        );
+        await request.post(`/bloodTest/saveProjectClass?projectClass=${this.addProjectClassForm.projectClassName}`);
         this.$message.success('保存成功');
         await this.getAllProjectClassNames();
         await this.getBloodTestProjectData(this.activeClass);
@@ -304,22 +284,14 @@ export default {
 
       this.updateProjectForm = {
         ...this.updateProjectForm,
-        referenceRangeHigh: this.updateProjectForm.referenceRangeHigh || null, // 空字符串转 null
-        referenceRangeLow: this.updateProjectForm.referenceRangeLow || null   // 空字符串转 null
+        referenceRangeHigh: this.updateProjectForm.referenceRangeHigh || null,
+        referenceRangeLow: this.updateProjectForm.referenceRangeLow || null
       };
 
       console.log("保存项目", this.updateProjectForm)
 
       try {
-        await axios.post(
-          `${API_BASE_URL}/bloodTest/saveProject`,
-          this.updateProjectForm,
-          {
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          }
-        );
+        await request.post('/bloodTest/saveProject', this.updateProjectForm);
         this.$message.success('保存成功');
         await this.getBloodTestProjectData(this.activeClass);
         this.cancelProject();
@@ -338,12 +310,16 @@ export default {
     },
 
     async deleteProject() {
-      const response = await axios.delete(`${API_BASE_URL}/bloodTest/deleteProject/${this.projectIdToDelete}`);
-      console.log(response)
-      // 提示删除成功
-      this.$message.success('删除成功');
-      this.cancelDeleteProject();
-      await this.getBloodTestProjectData(this.activeClass);
+      try {
+        const response = await request.delete(`/bloodTest/deleteProject/${this.projectIdToDelete}`);
+        console.log(response)
+        this.$message.success('删除成功');
+        this.cancelDeleteProject();
+        await this.getBloodTestProjectData(this.activeClass);
+      } catch (error) {
+        console.error('删除失败:', error);
+        this.$message.error('删除失败');
+      }
     },
 
     cancelDeleteProject() {

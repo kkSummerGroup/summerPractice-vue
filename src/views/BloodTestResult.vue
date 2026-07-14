@@ -34,8 +34,7 @@
 </template>
 
 <script>
-import {API_BASE_URL} from "@/tool/config";
-import axios from "axios";
+import request from '@/api'
 export default {
   data() {
     return {
@@ -88,7 +87,6 @@ export default {
     },
 
     downloadExcel(type) {
-      // 定义不同表对应的文件名和显示名称
       const fileMap = {
         'blood': { fileName: '全血细胞分析.xlsx', displayName: '全血细胞分析' },
         'biochemistry': { fileName: '生化全项.xlsx', displayName: '生化全项' },
@@ -101,19 +99,25 @@ export default {
         return;
       }
 
-      axios({
-        url: `${API_BASE_URL}/excel/download`,
+      request({
+        url: '/excel/download',
         method: 'get',
-        params: { type: type },  // 向后端传递参数
+        params: { type: type },
         responseType: 'blob'
       }).then(res => {
-        const blob = new Blob([res.data], {
+        const blob = new Blob([res], {
           type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         });
+
+        console.log('创建的 Blob:', blob);
+        console.log('Blob 大小:', blob.size);
+
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = selected.fileName;
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
         URL.revokeObjectURL(link.href);
         this.$message.success(`${selected.displayName} 下载成功`);
       }).catch(err => {

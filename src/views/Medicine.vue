@@ -35,8 +35,7 @@
 </template>
 
 <script>
-import axios from "axios";
-import {API_BASE_URL} from "@/tool/config";
+import request from "@/api";
 
 export default {
   name: "",
@@ -111,22 +110,19 @@ export default {
       this.currentItem = item;
       this.previewVisible = true;
     },
+
     async getAllMedData() {
       try {
         console.log(this.queryMed)
-        const response = await axios.post(`${API_BASE_URL}/medicine/getMed`, this.queryMed, {
-          headers: {
-            'Content-Type': 'application/json' // 必须明确指定
-          }
-        });
+        const response = await request.post('/medicine/getMed', this.queryMed)
         console.log(response)
-        this.allMedData = response.data.records;
-        this.queryMed.total = response.data.total;
+        this.allMedData = response.records || []
+        this.queryMed.total = response.total || 0
       } catch (error) {
-        console.error('错误:', error);
-      } finally {
+        console.error('错误:', error)
       }
     },
+
     handleSizeChange(newSize) {
       this.queryMed.size = newSize;
       this.queryMed.current = 1; // 重置到第一页

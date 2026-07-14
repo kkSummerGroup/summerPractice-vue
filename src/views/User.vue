@@ -118,7 +118,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import request from '@/api'
 import {API_BASE_URL} from '@/tool/config';
 
 export default {
@@ -179,19 +179,21 @@ export default {
 
   methods: {
 
+    // 直接使用响应数据，不判断 code
     async getAllUserData() {
+      this.loading = true
       try {
-        const response = await axios.post(`${API_BASE_URL}/user/getUser`, this.queryUser, {
-          headers: {
-            'Content-Type': 'application/json' // 必须明确指定
-          }
-        });
-        console.log(response)
-        this.allUserData = response.data.records;
-        this.queryUser.total = response.data.total;
+        const response = await request.post('/user/getUser', this.queryUser)
+        console.log('用户数据响应:', response)
+
+        // 直接取数据，因为后端返回的就是分页对象
+        this.allUserData = response.records || []
+        this.queryUser.total = response.total || 0
       } catch (error) {
-        console.error('错误:', error);
+        console.error('获取用户数据失败:', error)
+        this.$message.error('获取用户数据失败')
       } finally {
+        this.loading = false
       }
     },
 
