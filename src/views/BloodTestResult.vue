@@ -1,5 +1,10 @@
 <template>
   <div class="pivot-table-container">
+    <div>
+      <el-button type="primary" @click="downloadExcel('blood')">下载全血细胞分析</el-button>
+      <el-button type="success" @click="downloadExcel('biochemistry')">下载生化全项</el-button>
+      <el-button type="warning" @click="downloadExcel('all')">下载检验指标总表</el-button>
+    </div>
     <el-table
       :data="transformedData.data"
       border
@@ -29,6 +34,8 @@
 </template>
 
 <script>
+import {API_BASE_URL} from "@/tool/config";
+import axios from "axios";
 export default {
   data() {
     return {
@@ -78,6 +85,41 @@ export default {
       };
 
       console.log('转换后的数据:', this.transformedData); // 调试用
+    },
+
+    downloadExcel(type) {
+      // 定义不同表对应的文件名和显示名称
+      const fileMap = {
+        'blood': { fileName: '全血细胞分析.xlsx', displayName: '全血细胞分析' },
+        'biochemistry': { fileName: '生化全项.xlsx', displayName: '生化全项' },
+        'all': { fileName: '检验指标总表.xlsx', displayName: '检验指标总表' }
+      };
+
+      const selected = fileMap[type];
+      if (!selected) {
+        this.$message.error('未知的下载类型');
+        return;
+      }
+
+      axios({
+        url: `${API_BASE_URL}/excel/download`,
+        method: 'get',
+        params: { type: type },  // 向后端传递参数
+        responseType: 'blob'
+      }).then(res => {
+        const blob = new Blob([res.data], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = selected.fileName;
+        link.click();
+        URL.revokeObjectURL(link.href);
+        this.$message.success(`${selected.displayName} 下载成功`);
+      }).catch(err => {
+        console.error('下载失败:', err);
+        this.$message.error(`${selected.displayName} 下载失败，请稍后重试`);
+      });
     }
   }
 };
