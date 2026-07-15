@@ -142,8 +142,7 @@
 </template>
 
 <script>
-import axios from 'axios';
-import {API_BASE_URL} from "@/tool/config";
+import request from "@/api";
 
 export default {
   data() {
@@ -211,7 +210,7 @@ export default {
      */
 
     handleRemoveMedPic() {
-      console.log(321);
+      // console.log(321);
       this.medPic = [];
       this.dialogImageUrl = "";
       this.data.medPic = ""; // 清空 Base64 字符串
@@ -222,7 +221,7 @@ export default {
     },
 
     handleRemovePillPic() {
-      console.log(321);
+      // console.log(321);
       this.pillPic = [];
       this.dialogImageUrl = "";
       this.data.pillPic = ""; // 清空 Base64 字符串
@@ -233,7 +232,7 @@ export default {
     },
 
     handleRemove() {
-      console.log(321);
+      // console.log(321);
       this.medPic = [];
       this.pillPic = [];
       this.dialogImageUrl = "";
@@ -263,16 +262,22 @@ export default {
       this.$refs.medicineForm.validate((valid) => {
         if (valid) {
           // 提交表单
-          try {
-            axios.post(`${API_BASE_URL}/medicine/saveMed`, this.data);
-          } catch (error) {
-            console.error('错误:', error);
-          }
-          this.resetMedicine();
-          this.$message({
-            message: '药物添加成功',
-            type: 'success'
-          });
+          request.post('/medicine/saveMed', this.data)
+              .then(res => {
+                console.log('添加成功:', res);
+                this.$message({
+                  message: '药物添加成功',
+                  type: 'success'
+                });
+                this.resetMedicine();
+              })
+              .catch(err => {
+                console.error('添加失败:', err);
+                this.$message({
+                  message: err.response?.data?.message || '添加失败，请稍后重试',
+                  type: 'error'
+                });
+              });
         } else {
           return false;
         }

@@ -39,6 +39,16 @@
       </el-form-item>
 
       <el-form :model="userData" :rules="formRules" ref="userForm" :hide-required-asterisk="true">
+
+        <el-row>
+          <el-form-item class="formItem" label="身份：">
+            <el-radio-group v-model="userData.role">
+              <el-radio-button :label="1">医生</el-radio-button>
+              <el-radio-button :label="2">患者</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+        </el-row>
+
         <el-row>
           <el-form-item class="formItem" label="账号：" prop="userId">
             <el-input placeholder="必填" class="input" v-model="userData.userId"></el-input>
@@ -74,8 +84,7 @@
 </template>
 
 <script>
-import axios from 'axios';
-import {API_BASE_URL} from "@/tool/config";
+import request from '@/api'
 
 export default {
   data() {
@@ -85,6 +94,7 @@ export default {
         userId: "",
         username: "",
         password: "",
+        role: 2,  // 默认患者（2）
         type: 0, // 0表示添加
       },
       fileList: [],
@@ -153,16 +163,22 @@ export default {
       this.$refs.userForm.validate((valid) => {
         if (valid) {
           // 提交表单
-          try {
-            axios.post(`${API_BASE_URL}/user/saveUser`, this.userData);
-          } catch (error) {
-            console.error('错误:', error);
-          }
-          this.resetUser();
-          this.$message({
-            message: '用户添加成功',
-            type: 'success'
-          });
+          request.post('/user/saveUser', this.userData)
+              .then(res => {
+                console.log('添加成功:', res);
+                this.$message({
+                  message: '用户添加成功',
+                  type: 'success'
+                });
+                this.resetUser();
+              })
+              .catch(err => {
+                console.error('添加失败:', err);
+                this.$message({
+                  message: '添加失败，请稍后重试',
+                  type: 'error'
+                });
+              });
         } else {
           return false;
         }
@@ -172,6 +188,7 @@ export default {
     // 清空
     resetUser() {
       this.$refs.userForm.resetFields();
+      this.userData.role = 2;
       this.handleRemove();
     },
 

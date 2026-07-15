@@ -143,7 +143,6 @@
 
 <script>
 import request from '@/api'
-import {API_BASE_URL} from "@/tool/config";
 
 export default {
   name: "",
