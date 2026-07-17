@@ -8,15 +8,27 @@
         background-color="rgb(48, 65, 86)"
         text-color="#fff"
         class="menu"
-        default-active="/user"
+        default-active=""
         router
     >
-      <el-submenu index="1">
+      <!-- ===== 根据角色动态渲染数据中心 ===== -->
+      <el-menu-item v-if="userRole === 1" index="/doctorDashboard">
+        <i class="el-icon-document"></i>
+        <span slot="title" style="color: #fff">数据中心</span>
+      </el-menu-item>
+
+      <el-menu-item v-if="userRole === 2" index="/patientDashboard">
+        <i class="el-icon-document"></i>
+        <span slot="title" style="color: #fff">个人数据中心</span>
+      </el-menu-item>
+
+      <!-- ===== 用户菜单（所有角色可见） ===== -->
+      <el-submenu v-if="userRole === 1" index="1">
         <template slot="title">
           <i class="el-icon-s-custom"></i>
           <span>用户</span>
         </template>
-        <el-menu-item index="/user">
+        <el-menu-item index="/userView">
           <i class="el-icon-user-solid"></i>
           <span slot="title" style="color: #fff">用户信息</span>
         </el-menu-item>
@@ -24,9 +36,19 @@
           <i class="el-icon-user"></i>
           <span slot="title" style="color: #fff">添加用户</span>
         </el-menu-item>
+        <el-menu-item index="/patientDashboard">
+          <i class="el-icon-document"></i>
+          <span slot="title" style="color: #fff">个人信息</span>
+        </el-menu-item>
       </el-submenu>
 
-      <el-submenu index="2">
+      <!-- ===== 抽血菜单 ===== -->
+      <el-menu-item v-if="userRole === 2" index="/bloodTestResult">
+        <i class="el-icon-document-copy"></i>
+        <span slot="title" style="color: #fff">抽血结果</span>
+      </el-menu-item>
+
+      <el-submenu v-if="userRole === 1"  index="2">
         <template slot="title">
           <i class="el-icon-data-analysis"></i>
           <span>抽血</span>
@@ -41,7 +63,13 @@
         </el-menu-item>
       </el-submenu>
 
-      <el-submenu index="3">
+      <!-- ===== 药物菜单===== -->
+      <el-menu-item v-if="userRole === 2" index="/medicine">
+        <i class="el-icon-water-cup"></i>
+        <span slot="title" style="color: #fff">药物列表</span>
+      </el-menu-item>
+
+      <el-submenu  v-if="userRole === 1" index="3">
         <template slot="title">
           <i class="el-icon-hot-water"></i>
           <span>药物</span>
@@ -56,12 +84,13 @@
         </el-menu-item>
       </el-submenu>
 
-      <el-menu-item index="/test">
+      <!-- ===== 测试菜单（仅 role=1 可见） ===== -->
+      <el-menu-item v-if="userRole === 1" index="/test">
         <i class="el-icon-document"></i>
         <span slot="title" style="color: #fff">测试</span>
       </el-menu-item>
 
-      <!-- 退出登录 -->
+      <!-- ===== 退出登录 ===== -->
       <div class="logout-section">
         <el-menu-item index="/login" @click="handleLogout">
           <i class="el-icon-switch-button"></i>
@@ -78,7 +107,10 @@ import {mapGetters, mapActions} from 'vuex'
 export default {
   name: 'Menu',
   computed: {
-    ...mapGetters(['username'])
+    ...mapGetters(['username', 'role']),
+    userRole() {
+      return this.role || 0
+    }
   },
   methods: {
     ...mapActions(['logout']),
@@ -89,17 +121,15 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        // 清除登录状态
         this.logout()
-        // 跳转到登录页
         this.$router.push('/login')
         this.$message.success('已退出登录')
-      }).catch(() => {
-      })
+      }).catch(() => {})
     }
   }
 }
 </script>
+
 
 <style scoped>
 .menu-container {
@@ -163,9 +193,35 @@ export default {
   line-height: 50px;
 }
 
-/* 滚动条样式 */
+.menu {
+  flex: 1;
+  border-right: none;
+  overflow-y: auto;
+  min-height: calc(100vh - 60px);
+  /* ✅ 隐藏滚动条 - Firefox */
+  scrollbar-width: none;
+  /* ✅ 隐藏滚动条 - IE/Edge */
+  -ms-overflow-style: none;
+}
+
+/* ✅ 隐藏滚动条 - Chrome/Safari/Opera */
+.menu-container::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.menu-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.menu-container::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+/* ✅ 隐藏滚动条 - Chrome/Safari/Opera */
 .menu::-webkit-scrollbar {
-  width: 4px;
+  width: 0;
+  height: 0;
 }
 
 .menu::-webkit-scrollbar-track {
@@ -173,7 +229,6 @@ export default {
 }
 
 .menu::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
+  background: transparent;
 }
 </style>

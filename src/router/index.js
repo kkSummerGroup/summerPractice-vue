@@ -1,3 +1,4 @@
+// router/index.js
 import VueRouter from 'vue-router'
 import store from '@/store'
 
@@ -23,14 +24,35 @@ const routes = [
       requiresAuth: true
     },
     children: [
+      // ===== 两个 Dashboard =====
+      {
+        path: '/doctorDashboard',
+        name: 'doctorDashboard',
+        meta: {
+          title: '数据中心',
+          requiresAuth: true,
+          roles: [1]  // 👈 只有 role=1 可见
+        },
+        component: () => import('../views/DoctorDashboard.vue')
+      },
       {
         path: '/user',
         name: 'user',
         meta: {
+          title: '个人信息',
+          requiresAuth: true,
+        },
+        component: () => import('../views/User.vue')
+      },
+      // ===== 公共路由（所有角色可见） =====
+      {
+        path: '/userView',
+        name: 'userView',
+        meta: {
           title: '用户信息',
           requiresAuth: true
         },
-        component: () => import('../views/User.vue')
+        component: () => import('../views/UserView.vue')
       },
       {
         path: '/addUser',
@@ -79,16 +101,15 @@ const routes = [
       },
       {
         path: '/test',
-        name: 'tTest',
+        name: 'test',
         meta: {
-          title: '上传测试',
+          title: '测试',
           requiresAuth: true
         },
         component: () => import('../views/Test.vue')
       }
     ]
   },
-  // 404 页面
   {
     path: '*',
     redirect: '/'
@@ -100,9 +121,8 @@ const router = new VueRouter({
   routes
 })
 
-// 路由守卫 - 认证检查
+// ===== 路由守卫 =====
 router.beforeEach(async (to, from, next) => {
-  // 设置页面标题
   if (to.meta.title) {
     document.title = to.meta.title
   }
@@ -110,11 +130,9 @@ router.beforeEach(async (to, from, next) => {
   const requiresAuth = to.meta.requiresAuth !== false
 
   if (requiresAuth) {
-    // 检查是否已登录
     const isLoggedIn = store.getters.isLoggedIn
 
     if (!isLoggedIn) {
-      // 未登录，跳转到登录页
       next({
         path: '/login',
         query: { redirect: to.fullPath }
@@ -122,37 +140,65 @@ router.beforeEach(async (to, from, next) => {
       return
     }
 
-    // 验证 Token 是否有效
+    // 验证 Token
     try {
       const isValid = await store.dispatch('verify')
       if (!isValid) {
         store.dispatch('logout')
-        next({
-          path: '/login',
-          query: { redirect: to.fullPath }
-        })
+        next({ path: '/login', query: { redirect: to.fullPath } })
         return
       }
     } catch (error) {
       store.dispatch('logout')
-      next({
-        path: '/login',
-        query: { redirect: to.fullPath }
-      })
+      next({ path: '/login', query: { redirect: to.fullPath } })
       return
+    }
+
+    // ===== 权限校验 =====
+    const userRole = store.getters.role
+    const requiredRoles = to.meta.roles
+
+// ❌ 用户角色本身无效（非1非2），强制退出
+    if (userRole !== 1 && userRole !== 2) {
+      store.dispatch('logout')
+      next({ path: '/login', query: { message: '账号无权限' } })
+      return
+    }
+
+    if (requiredRoles && requiredRoles.length > 0) {
+      if (!requiredRoles.includes(userRole)) {
+        // 无权限，跳转到对应的 Dashboard
+        if (userRole === 1) {
+          next('/doctorDashboard')
+        } else if (userRole === 2) {
+          next('/patientDashboard')
+        } else {
+          // 理论上不会到这里，但保留兜底
+          store.dispatch('logout')
+          next('/login')
+        }
+        return
+      }
     }
   }
 
-  // 已登录但访问登录页，跳转到首页
+  // 已登录访问登录页
   if (to.path === '/login' && store.getters.isLoggedIn) {
     try {
       const isValid = await store.dispatch('verify')
       if (isValid) {
-        next(from.query.redirect || '/')
+        const userRole = store.getters.role
+        if (userRole === 1) {
+          next('/doctorDashboard')
+        } else if (userRole === 2) {
+          next('/patientDashboard')
+        } else {
+          next('/')
+        }
         return
       }
     } catch (error) {
-      // Token 无效，继续显示登录页
+      // 继续显示登录页
     }
   }
 

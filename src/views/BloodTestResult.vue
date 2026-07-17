@@ -5,9 +5,8 @@
       <!-- 左侧主内容 -->
       <div class="main-content">
         <!-- 操作按钮栏 -->
-        <div class="toolbar">
+        <div  v-if="userRole === 1"  class="toolbar">
           <div class="toolbar-left">
-            <!-- 现在（动态） -->
             <el-button
                 v-for="category in categoryList"
                 :key="category.projectClassId"
@@ -19,8 +18,8 @@
             <el-button type="info" @click="uploadDialogVisible = true">上传检验数据</el-button>
           </div>
           <div class="toolbar-right">
-            <el-tag v-if="selectedUser" type="success">
-              当前用户：{{ selectedUser.username }}（{{ selectedUser.userId }}）
+            <el-tag v-if="currentUser" type="success">
+              当前用户：{{ currentUser.username }}（{{ currentUser.userId }}）
             </el-tag>
           </div>
         </div>
@@ -60,14 +59,14 @@
             <template #default="{ row }">
               <span :style="{ color: getColor(row, date) }">
                 {{ row[date] || '-' }}
-            </span>
+              </span>
             </template>
           </el-table-column>
         </el-table>
       </div>
 
-      <!-- ========== 右侧用户列表 ========== -->
-      <div class="user-sidebar">
+      <!-- ========== 右侧用户列表（仅 role=1 显示） ========== -->
+      <div v-if="userRole === 1" class="user-sidebar">
         <div class="user-sidebar-header">
           <span>选择用户</span>
           <el-input
@@ -122,8 +121,8 @@
     >
       <el-form :model="uploadForm" label-width="100px" ref="uploadFormRef">
         <el-form-item label="选择用户">
-          <el-tag v-if="selectedUser" size="large" type="success">
-            {{ selectedUser.username }}（{{ selectedUser.userId }}）
+          <el-tag v-if="currentUser" size="large" type="success">
+            {{ currentUser.username }}（{{ currentUser.userId }}）
           </el-tag>
           <el-tag v-else size="large" type="info">请先选择用户</el-tag>
         </el-form-item>
@@ -173,6 +172,7 @@
 
 <script>
 import request from '@/api'
+import { mapGetters } from 'vuex'
 
 export default {
   data() {
@@ -211,14 +211,43 @@ export default {
       categoryList: [],
     }
   },
+  computed: {
+    ...mapGetters(['userId', 'username', 'role']),
+    userRole() {
+      return this.role || 0
+    },
+    // 当前用户（用于显示）
+    currentUser() {
+      if (this.userRole === 2) {
+        // role=2：直接使用当前登录用户
+        return {
+          userId: this.userId,
+          username: this.username
+        }
+      } else {
+        // role=1：使用选中的用户
+        return this.selectedUser
+      }
+    },
+    // 实际查询的用户ID
+    queryUserId() {
+      if (this.userRole === 2) {
+        return this.userId
+      } else {
+        return this.selectedUser?.userId || null
+      }
+    }
+  },
   created() {
-    this.getCategoryList()  // 👈 新增：加载分类列表
+    this.getCategoryList()
     this.getAllUserData()
   },
   watch: {
-    selectedUser: {
-      handler() {
-        this.loadData()
+    queryUserId: {
+      handler(newVal) {
+        if (newVal) {
+          this.loadData()
+        }
       },
       immediate: true
     }
@@ -234,9 +263,11 @@ export default {
         console.error('获取分类列表失败:', error)
       }
     },
+
     // ========== 加载数据 ==========
     async loadData() {
-      if (!this.selectedUser) {
+      const userId = this.queryUserId
+      if (!userId) {
         this.originalData = []
         this.transformData()
         return
@@ -245,8 +276,8 @@ export default {
       this.tableLoading = true
       try {
         const params = {
-          userId: this.selectedUser.userId,
-          category: this.selectedCategory  // 'all' 或具体类别名
+          userId: userId,
+          category: this.selectedCategory
         }
         const res = await request.post('/bloodTest/getUserResults', params)
         this.originalData = res || []
@@ -259,8 +290,13 @@ export default {
       }
     },
 
-    // ========== 用户列表相关 ==========
+    // ========== 用户列表相关（仅 role=1 使用） ==========
     async getAllUserData() {
+      // role=2 不需要获取用户列表
+      if (this.userRole !== 1) {
+        return
+      }
+
       try {
         const params = {
           userId: this.userQuery.keyword,
@@ -272,11 +308,8 @@ export default {
         this.allUserData = res.records || []
         this.userQuery.total = res.total || 0
 
-        // ✅ 如果用户列表有数据，且没有选中任何用户，默认选中第一个
         if (this.allUserData.length > 0 && !this.selectedUser) {
           this.selectedUser = this.allUserData[0]
-          this.$message.success(`默认选择用户：${this.selectedUser.username}`)
-          this.loadData()
         }
       } catch (error) {
         console.error('获取用户列表失败:', error)
@@ -290,7 +323,6 @@ export default {
 
     selectUser(user) {
       if (this.selectedUser && this.selectedUser.userId === user.userId) {
-        // 如果点击的是已选中的用户，取消选中
         this.selectedUser = null
         this.$message.info('已取消选择用户')
       } else {
@@ -302,22 +334,19 @@ export default {
     // ========== 数据转换（透视表） ==========
     transformData() {
       if (!this.originalData || this.originalData.length === 0) {
-        this.transformedData = { columns: [], data: [] }
+        this.transformedData = {columns: [], data: []}
         return
       }
 
-      // 获取所有唯一的日期值作为列头
       const dates = [...new Set(this.originalData.map(item => item.date))].sort()
-      // 获取所有唯一的项目名称作为行头
       const items = [...new Set(this.originalData.map(item => item.name))]
 
       const transformedData = items.map(item => {
-        // 从第一条数据中获取 refRange 和 unit（同一项目相同）
         const firstItem = this.originalData.find(d => d.name === item)
         const row = {
           name: item,
-          unit: firstItem ? firstItem.unit : '-',        // 单位列
-          refRange: firstItem ? firstItem.refRange : '-' // 参考区间列
+          unit: firstItem ? firstItem.unit : '-',
+          refRange: firstItem ? firstItem.refRange : '-'
         }
         dates.forEach(date => {
           const found = this.originalData.find(d => d.name === item && d.date === date)
@@ -367,7 +396,8 @@ export default {
     },
 
     handleUpload() {
-      if (!this.selectedUser) {
+      const userId = this.queryUserId
+      if (!userId) {
         this.$message.warning('请先选择用户')
         return
       }
@@ -388,7 +418,7 @@ export default {
         try {
           const base64 = e.target.result.split(',')[1]
           const params = {
-            userId: this.selectedUser.userId,
+            userId: userId,
             testDate: this.uploadForm.testDate,
             fileName: this.uploadedFile.name,
             fileContent: base64
@@ -402,7 +432,7 @@ export default {
             this.$message.success(res.data || '数据上传成功')
             this.uploadDialogVisible = false
             this.resetUploadForm()
-            this.loadData() // 刷新表格
+            this.loadData()
           }).catch(err => {
             const msg = err.response?.data?.message || err.message || '上传失败，请稍后重试'
             this.$message.error(msg)
@@ -426,13 +456,12 @@ export default {
 
     // ========== 下载 ==========
     downloadExcel(type) {
-      // type 就是分类名，如 "全血细胞分析"、"生化全项"
       const fileName = `${type}.xlsx`
 
       request({
         url: '/excel/download',
         method: 'get',
-        params: { type: type },
+        params: {type: type},
         responseType: 'blob'
       }).then(res => {
         const blob = new Blob([res], {
@@ -452,15 +481,9 @@ export default {
       })
     },
 
-    /**
-     * 判断值是否在参考区间内
-     * @param {string} value - 实际值
-     * @param {string} refRange - 参考区间，如 "40~75" 或 "5~" 或 "~5" 或 "~"
-     * @returns {boolean} true=在区间内（绿色），false=超出区间（红色）
-     */
     isValueInRange(value, refRange) {
-      if (!value || value === '' || value === '-') return true // 空值默认绿色
-      if (!refRange || refRange === '' || refRange === '~' || refRange === '-') return true // 无界默认绿色
+      if (!value || value === '' || value === '-') return true
+      if (!refRange || refRange === '' || refRange === '~' || refRange === '-') return true
 
       const numValue = parseFloat(value)
       if (isNaN(numValue)) return true
@@ -469,19 +492,16 @@ export default {
       const lowStr = parts[0]?.trim()
       const highStr = parts[1]?.trim()
 
-      // 5~ 形式：无上限，只需检查下限
       if (lowStr && lowStr !== '' && (!highStr || highStr === '')) {
         const low = parseFloat(lowStr)
         return !isNaN(low) && numValue >= low
       }
 
-      // ~5 形式：无下限，只需检查上限
       if ((!lowStr || lowStr === '') && highStr && highStr !== '') {
         const high = parseFloat(highStr)
         return !isNaN(high) && numValue <= high
       }
 
-      // 5~10 形式：正常范围
       if (lowStr && lowStr !== '' && highStr && highStr !== '') {
         const low = parseFloat(lowStr)
         const high = parseFloat(highStr)
@@ -490,21 +510,19 @@ export default {
         }
       }
 
-      return true // 解析失败默认绿色
+      return true
     },
 
     getColor(row, date) {
       const value = row[date]
       const refRange = row.refRange
 
-      // 空值或 '-' 默认黑色
       if (!value || value === '-' || value === '') {
         return '#303133'
       }
 
-      // 判断是否在区间内
       const inRange = this.isValueInRange(value, refRange)
-      return inRange ? '#67C23A' : '#F56C6C' // 绿色 / 红色
+      return inRange ? '#67C23A' : '#F56C6C'
     }
   }
 }

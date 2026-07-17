@@ -73,12 +73,12 @@ export default {
       },
       rules: {
         username: [
-          { required: true, message: '请输入用户名', trigger: 'blur' },
-          { min: 2, max: 20, message: '用户名长度为2-20位', trigger: 'blur' }
+          {required: true, message: '请输入用户名', trigger: 'blur'},
+          {min: 2, max: 20, message: '用户名长度为2-20位', trigger: 'blur'}
         ],
         password: [
-          { required: true, message: '请输入密码', trigger: 'blur' },
-          { min: 6, max: 20, message: '密码长度为6-20位', trigger: 'blur' }
+          {required: true, message: '请输入密码', trigger: 'blur'},
+          {min: 6, max: 20, message: '密码长度为6-20位', trigger: 'blur'}
         ]
       },
       loading: false,
@@ -87,10 +87,11 @@ export default {
     }
   },
   computed: {
-    ...mapGetters(['isLoggedIn'])
+    ...mapGetters(['isLoggedIn', 'role'])
   },
   methods: {
-    ...mapActions(['login']),
+    // ✅ 添加 logout
+    ...mapActions(['login', 'logout']),
 
     async handleLogin() {
       this.message = ''
@@ -106,16 +107,37 @@ export default {
 
       try {
         const result = await this.login(this.loginData)
-        console.log('登录结果:', result)  // 调试日志
+        console.log('登录结果:', result)
 
         if (result.success) {
+          // ===== 获取角色 =====
+          const role = result.data?.role || this.role
+
+          // ❌ 非 1 或 2 不允许登录
+          if (role !== 1 && role !== 2) {
+            // 清除已保存的登录状态
+            await this.logout()
+            this.message = '❌ 该账号无权限登录系统，请联系管理员'
+            this.messageType = 'error'
+            this.loading = false
+            return
+          }
+
           this.message = '✅ 登录成功，正在跳转...'
           this.messageType = 'success'
 
-          const redirect = this.$route.query.redirect || '/user'
+          // 根据角色跳转
+          let redirect = '/user'
+          if (role === 1) {
+            redirect = '/doctorDashboard'
+          } else if (role === 2) {
+            redirect = '/patientDashboard'
+          }
+
           setTimeout(() => {
             this.$router.push(redirect)
           }, 1000)
+
         } else {
           this.message = '❌ ' + (result.message || '登录失败，请检查用户名和密码')
           this.messageType = 'error'
@@ -135,9 +157,16 @@ export default {
   },
 
   mounted() {
-    // 如果已登录，自动跳转
+    // 如果已登录，根据角色跳转
     if (this.isLoggedIn) {
-      this.$router.push('/user')
+      const role = this.role
+      if (role === 1) {
+        this.$router.push('/doctorDashboard')
+      } else if (role === 2) {
+        this.$router.push('/patientDashboard')
+      } else {
+        this.$router.push('/user')
+      }
     }
   }
 }
