@@ -64,9 +64,8 @@
             </template>
           </el-table-column>
         </el-table>
-        <!-- ========== 图标弹窗 ========== -->
+        <!-- ========== 图表弹窗 ========== -->
         <el-dialog
-            :title="chartDialog.title"
             :visible.sync="chartDialog.visible"
             width="80%"
             :close-on-click-modal="true"
@@ -275,12 +274,7 @@ export default {
   methods: {
     // ========== 获取分类列表 ==========
     handleRowClick(row) {
-      this.$confirm('确定要查看该项目的趋势图吗？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消'
-      }).then(() => {
-        this.openChart(row)
-      }).catch(() => {})
+      this.openChart(row)
     },
     // ==========准备数据 + 打开弹窗=====
     openChart(row) {
@@ -361,6 +355,30 @@ export default {
       const dates = data.map(item => item.date)
       const values = data.map(item => item.value)
 
+      // ========== 计算每个数据点的颜色 ==========
+      const labelColors = values.map(val => {
+        if (high !== null && val > high) return '#F56C6C'  // 红色（超过上界）
+        if (low !== null && val < low) return '#409EFF'   // 蓝色（低于下界）
+        return '#67C23A'  // 绿色（在范围内）
+      })
+
+      // ========== 构建带颜色的数据点 ==========
+      const coloredData = values.map((val, index) => ({
+        value: val,
+        itemStyle: {
+          color: labelColors[index]  // 圆点颜色
+        },
+        label: {
+          color: labelColors[index],  // 标签文字颜色
+          show: values.length <= 10,
+          position: 'top',
+          fontSize: 16,
+          formatter: function(params) {
+            return params.value
+          }
+        }
+      }))
+
       // 计算数据的最小值和最大值，用于Y轴范围
       const dataMin = Math.min(...values)
       const dataMax = Math.max(...values)
@@ -382,7 +400,7 @@ export default {
       if (high !== null && !addedValues.has(high)) {
         markLineData.push({
           yAxis: high,
-          name: `上限${high}`,
+          name: `上界：${high}`,
           lineStyle: { color: '#ee6666', type: 'dashed', width: 2 }
         })
         addedValues.add(high)
@@ -390,7 +408,7 @@ export default {
       if (low !== null && !addedValues.has(low)) {
         markLineData.push({
           yAxis: low,
-          name: `下限${low}`,
+          name: `下界：${low}`,
           lineStyle: { color: '#ee6666', type: 'dashed', width: 2 }
         })
         addedValues.add(low)
@@ -422,55 +440,65 @@ export default {
             return res
           }
         },
-        legend: {
-          data: [name],
-          bottom: 0,
-          icon: 'roundRect',
-          itemWidth: 20
-        },
+        // legend: {
+        //   data: [name],
+        //   bottom: 0,
+        //   icon: 'roundRect',
+        //   itemWidth: 20
+        // },
         xAxis: {
           type: 'category',
           data: dates,
+          name: '检测日期',
           axisLabel: { rotate: 20, fontSize: 12 },
+          splitLine: {
+            show: true,
+            lineStyle: {
+              color: '#e0e0e0',
+              type: 'dashed',
+              width: 1
+            }
+          },
           boundaryGap: false
         },
         yAxis: {
           type: 'value',
           min: yMin,
           max: yMax,
+          name: `检测值（${unit || ''}）`,
           splitLine: { lineStyle: { type: 'dashed', color: '#eee' } },
           axisLabel: {
             formatter: function(value) {
-              return unit ? value + ' ' + unit : value
+              return value
             }
           }
         },
         series: [{
           name: name,
           type: 'line',
-          data: values,
+          data: coloredData,
           symbol: 'circle',
-          symbolSize: 8,
-          lineStyle: { color: '#409EFF', width: 3 },
-          areaStyle: { color: 'rgba(64,158,255,0.15)' },
-          // 显示数值标签（数据点少于10个时）
-          label: {
-            show: values.length <= 10,
-            position: 'top',
-            fontSize: 11,
-            color: '#303133',
-            formatter: function(params) {
-              return params.value
-            }
-          },
+          symbolSize: 14,
+          lineStyle: { color: '#999999', width: 3 },
+          // // 显示数值标签（数据点少于10个时）
+          // label: {
+          //   show: values.length <= 10,
+          //   position: 'top',
+          //   fontSize: 11,
+          //   color: '#303133',
+          //   formatter: function(params) {
+          //     return params.value
+          //   }
+          // },
           markLine: {
             silent: true,
             data: markLineData,
+            symbol: 'none',  // ✅ 去掉端点标记（圆点和箭头）
             label: {
               formatter: function(params) {
-                return params.name + ' ' + params.value
+                return params.name
               },
-              position: 'insideEndTop',
+              position: 'start',
               fontSize: 12,
               color: '#ee6666'
             }

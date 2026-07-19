@@ -1,14 +1,4 @@
-<script setup>
-
-</script>
-
 <template>
-
-</template>
-
-<style scoped>
-
-</style><template>
   <div class="dashboard-container">
     <!-- ========== 顶部：用户信息 ========== -->
     <div class="dashboard-header">
@@ -16,27 +6,17 @@
         <h1>🧑‍⚕️ 我的抽血数据大屏</h1>
         <span class="user-role">患者端</span>
       </div>
-      <div class="header-right">
+      <div class="header-right" style="display: flex;">
+        <p>您好，</p>
         <el-tag type="success" size="large">
           {{ username }}（{{ userId }}）
         </el-tag>
-        <el-button type="danger" size="small" @click="handleLogout" style="margin-left: 15px;">
-          退出登录
-        </el-button>
       </div>
     </div>
 
     <!-- ========== 统计卡片（新顺序 + 正确计算） ========== -->
     <el-row :gutter="20" class="stats-row">
-      <el-col :span="6">
-        <el-card class="stats-card" shadow="hover">
-          <div class="stats-icon orange">📅</div>
-          <div class="stats-content">
-            <div class="stats-number">{{ overview.lastTestDate || '-' }}</div>
-            <div class="stats-label">最近检测日期</div>
-          </div>
-        </el-card>
-      </el-col>
+
       <el-col :span="6">
         <el-card class="stats-card" shadow="hover">
           <div class="stats-icon blue">📋</div>
@@ -46,6 +26,17 @@
           </div>
         </el-card>
       </el-col>
+
+      <el-col :span="6">
+        <el-card class="stats-card" shadow="hover">
+          <div class="stats-icon orange">📅</div>
+          <div class="stats-content">
+            <div class="stats-number">{{ overview.lastTestDate || '-' }}</div>
+            <div class="stats-label">最近检测日期</div>
+          </div>
+        </el-card>
+      </el-col>
+
       <el-col :span="6">
         <el-card class="stats-card" shadow="hover">
           <div class="stats-icon red">⚠️</div>
@@ -56,6 +47,7 @@
             <div class="stats-label">异常项目数（最近一次）</div>
           </div>
         </el-card>
+
       </el-col>
       <el-col :span="6">
         <el-card class="stats-card" shadow="hover">
@@ -66,6 +58,7 @@
           </div>
         </el-card>
       </el-col>
+
     </el-row>
 
     <!-- ========== 异常指标 + 历史异常趋势 ========== -->
@@ -131,7 +124,7 @@
                 <span class="trend-name">{{ item.name }}</span>
                 <span class="trend-tag" :class="item.direction === 'up' ? 'trend-up' : 'trend-down'"
                       :style="{ backgroundColor: getColorByCount(item.count, item.direction) }">
-                  {{ item.direction === 'up' ? '↑ 连续上升' : '↓ 连续下降' }}
+                      {{ item.displayDirection || (item.direction === 'up' ? '↑ 持续升高' : '↓ 持续降低') }}
                   <span class="trend-count">{{ item.count }}次</span>
                 </span>
               </div>
@@ -382,45 +375,127 @@ export default {
         this.abnormalTrendList = []
         return
       }
+
+      // 按项目分组，按日期排序（旧→新）
       const groupMap = {}
       records.forEach(r => {
         if (!groupMap[r.name]) groupMap[r.name] = []
         groupMap[r.name].push(r)
       })
+
       const trendList = []
+
       Object.keys(groupMap).forEach(name => {
         const items = groupMap[name].sort((a, b) => new Date(a.date) - new Date(b.date))
-        const abnormalItems = items.filter(r => r.status === 'abnormal')
-        if (abnormalItems.length < 2) return
-        let direction = null, count = 1, maxCount = 1, maxDirection = null
-        for (let i = 1; i < abnormalItems.length; i++) {
-          const prev = parseFloat(abnormalItems[i-1].value)
-          const curr = parseFloat(abnormalItems[i].value)
-          if (isNaN(prev) || isNaN(curr)) continue
-          const currentDir = curr > prev ? 'up' : (curr < prev ? 'down' : null)
-          if (currentDir && currentDir === direction) {
-            count++
+        if (items.length < 2) return
+
+        // 获取该项目的参考区间
+        const { low, high } = this.parseRefRange(items[0]?.refRange)
+
+        // 从最近一次开始，向前找连续异常的记录（按次数连续）
+        let consecutiveAbnormal = []
+        // 从后往前遍历（从最近到最旧）
+        for (let i = items.length - 1; i >= 0; i--) {
+          const record = items[i]
+          const isAbnormal = record.status === 'abnormal'
+          if (isAbnormal) {
+            consecutiveAbnormal.push(record)
           } else {
-            if (count >= 2 && direction) {
-              if (count > maxCount) { maxCount = count; maxDirection = direction }
-            }
-            direction = currentDir
-            count = 1
+            // 遇到正常记录，连续中断，停止向前
+            break
           }
         }
-        if (count >= 2 && direction) {
-          if (count > maxCount) { maxCount = count; maxDirection = direction }
+
+        // 如果连续异常次数 < 2，跳过
+        if (consecutiveAbnormal.length < 2) return
+
+        // 反转，使日期从旧到新（便于判断趋势）
+        consecutiveAbnormal.reverse()
+
+        // 检查数值是否持续远离参考区间（连续上升或连续下降）
+        let direction = null
+        let allConsistent = true
+
+        for (let i = 1; i < consecutiveAbnormal.length; i++) {
+          const prev = parseFloat(consecutiveAbnormal[i - 1].value)
+          const curr = parseFloat(consecutiveAbnormal[i].value)
+          if (isNaN(prev) || isNaN(curr)) {
+            allConsistent = false
+            break
+          }
+
+          // 判断当前是偏高还是偏低（相对于参考区间）
+          const isHigh = high !== null && prev > high && curr > high
+          const isLow = low !== null && prev < low && curr < low
+
+          // 如果不在同一侧（有的偏高有的偏低），不算连续趋势
+          if (!isHigh && !isLow) {
+            allConsistent = false
+            break
+          }
+
+          // 判断方向：是否持续远离
+          let currentDir = null
+          if (isHigh) {
+            // 偏高：数值越大表示越远离
+            currentDir = curr > prev ? 'up' : (curr < prev ? 'down' : null)
+          } else if (isLow) {
+            // 偏低：数值越小表示越远离
+            currentDir = curr < prev ? 'down' : (curr > prev ? 'up' : null)
+          }
+
+          if (currentDir === null) {
+            allConsistent = false
+            break
+          }
+
+          if (direction === null) {
+            direction = currentDir
+          } else if (direction !== currentDir) {
+            // 方向不一致，中断
+            allConsistent = false
+            break
+          }
         }
-        if (maxCount >= 2 && maxDirection) {
-          const recentValues = abnormalItems.slice(-maxCount).map(item => ({
+
+        // 只有持续远离（方向一致）且全部在正常范围外，才计入趋势
+        if (allConsistent && direction !== null) {
+          const recentValues = consecutiveAbnormal.map(item => ({
             date: item.date,
             value: item.value,
-            unit: item.unit,
+            unit: item.unit || '',
             status: item.status
           }))
-          trendList.push({ name, direction: maxDirection, count: maxCount, recentValues })
+
+          // direction 存储的是相对于参考区间的远离方向
+          // up = 越来越高（偏高时）或 越来越低（偏低时但数值上升，即靠近正常值？这里需要修正）
+          // 修正：统一用 'up' 表示数值朝远离参考区间的方向变化
+          const firstVal = parseFloat(consecutiveAbnormal[0].value)
+          const lastVal = parseFloat(consecutiveAbnormal[consecutiveAbnormal.length - 1].value)
+          const isHighSide = high !== null && firstVal > high && lastVal > high
+          const isLowSide = low !== null && firstVal < low && lastVal < low
+
+          let displayDirection = ''
+          if (isHighSide) {
+            displayDirection = lastVal > firstVal ? '↑ 持续升高' : '↓ 持续降低'
+          } else if (isLowSide) {
+            displayDirection = lastVal < firstVal ? '↓ 持续降低' : '↑ 持续升高'
+          } else {
+            // 跨侧或无法判断，跳过
+            return
+          }
+
+          trendList.push({
+            name,
+            direction: isHighSide ? (lastVal > firstVal ? 'up' : 'down') : (lastVal < firstVal ? 'down' : 'up'),
+            count: consecutiveAbnormal.length,
+            recentValues,
+            displayDirection
+          })
         }
       })
+
+      // 按连续次数从高到低排序
       trendList.sort((a, b) => b.count - a.count)
       this.abnormalTrendList = trendList
     },
@@ -432,11 +507,6 @@ export default {
 
     goToDetail() {
       this.$router.push('/bloodTestResult')
-    },
-
-    async handleLogout() {
-      await this.logout()
-      this.$router.push('/login')
     }
   }
 }
