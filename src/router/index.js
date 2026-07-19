@@ -36,6 +36,16 @@ const routes = [
         component: () => import('../views/DoctorDashboard.vue')
       },
       {
+        path: '/patientDashboard',
+        name: 'patientDashboard',
+        meta: {
+          title: '数据中心',
+          requiresAuth: true,
+          roles: [2]  // 👈 只有 role=2 可见
+        },
+        component: () => import('../views/PatientDashboard.vue')
+      },
+      {
         path: '/user',
         name: 'user',
         meta: {
