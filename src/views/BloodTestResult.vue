@@ -46,6 +46,7 @@
             style="width: 100%; margin-top: 10px;"
             :header-cell-style="{ background: '#f5f7fa', fontWeight: 'bold' }"
             v-loading="tableLoading"
+            @row-click="handleRowClick"
         >
           <el-table-column prop="name" label="项目" width="140" fixed />
           <el-table-column prop="unit" label="单位" width="100" fixed />
@@ -63,6 +64,16 @@
             </template>
           </el-table-column>
         </el-table>
+        <!-- ========== 图标弹窗 ========== -->
+        <el-dialog
+            :title="chartDialog.title"
+            :visible.sync="chartDialog.visible"
+            width="80%"
+            :close-on-click-modal="true"
+            @closed="closeChart"
+        >
+          <div id="chartContainer" style="width: 100%; height: 460px; margin: 0 auto;"></div>
+        </el-dialog>
       </div>
 
       <!-- ========== 右侧用户列表（仅 role=1 显示） ========== -->
@@ -172,6 +183,7 @@
 
 <script>
 import request from '@/api'
+import * as echarts from 'echarts'
 import { mapGetters } from 'vuex'
 
 export default {
@@ -209,8 +221,15 @@ export default {
 
       // ========== 分类列表 ==========
       categoryList: [],
+      // ========== 图表弹窗 ==========
+      chartDialog: {
+        visible: false,
+        title: '',
+        chartInstance: null,
+      },
     }
   },
+
   computed: {
     ...mapGetters(['userId', 'username', 'role']),
     userRole() {
@@ -238,6 +257,7 @@ export default {
       }
     }
   },
+
   created() {
     this.getCategoryList()
     this.getAllUserData()
@@ -254,6 +274,68 @@ export default {
   },
   methods: {
     // ========== 获取分类列表 ==========
+    handleRowClick(row) {
+      this.$confirm('确定要查看该项目的趋势图吗？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消'
+      }).then(() => {
+        this.openChart(row)
+      }).catch(() => {})
+    },
+    // ==========准备数据 + 打开弹窗=====
+    openChart(row) {
+      if (!row || !row.name) {
+        this.$message.warning('暂无数据')
+        return
+      }
+      const refRange = row.refRange || ''
+      let low = null
+      let high = null
+      if (refRange && refRange !== '-' && refRange !== '') {
+        const parts = refRange.split('~')
+        if (parts.length === 2) {
+          const lowStr = parts[0].trim()
+          const highStr = parts[1].trim()
+          if (lowStr) low = parseFloat(lowStr)
+          if (highStr) high = parseFloat(highStr)
+        }
+      }
+      const dates = this.transformedData.columns || []
+      const values = dates.map(date => {
+        const val = row[date]
+        if (val === '-' || val === '' || val === null || val === undefined) {
+          return null
+        }
+        const num = parseFloat(val)
+        return isNaN(num) ? null : num
+      })
+
+      let validData = dates.map((date, idx) => ({
+        date: date,
+        value: values[idx]
+      })).filter(item => item.value !== null)
+
+      // 如果数据点过多（>20），只显示最近20个，避免渲染卡顿
+      if (validData.length > 20) {
+        validData = validData.slice(-20)
+        this.$message.info('数据点过多，仅显示最近20次检测')
+      }
+
+      if (validData.length === 0) {
+        this.$message.warning('该项目暂无有效数据')
+        return
+      }
+      if (validData.length === 1) {
+        this.$message.warning('只有一个数据点，无法绘制趋势线')
+        return
+      }
+
+      this.chartDialog.title = `${row.name} 趋势监测`
+      this.chartDialog.visible = true
+      this.$nextTick(() => {
+        this.initChart(validData, row.name, low, high, row.unit || '')
+      }, 300)
+    },
     async getCategoryList() {
       try {
         const res = await request.get('/bloodTest/getCategories')
@@ -263,7 +345,156 @@ export default {
         console.error('获取分类列表失败:', error)
       }
     },
+    //============画图（优化Y轴范围，确保所有点可见）===========
+    initChart(data, name, low, high, unit) {
+      const container = document.getElementById('chartContainer')
+      if (!container) {
+        console.warn('未找到 chartContainer 容器')
+        return
+      }
+      if (this.chartDialog.chartInstance) {
+        this.chartDialog.chartInstance.dispose()
+        this.chartDialog.chartInstance = null
+      }
+      const chart = echarts.init(container)
+      this.chartDialog.chartInstance = chart
+      const dates = data.map(item => item.date)
+      const values = data.map(item => item.value)
 
+      // 计算数据的最小值和最大值，用于Y轴范围
+      const dataMin = Math.min(...values)
+      const dataMax = Math.max(...values)
+
+      // 参考区间的值（可能为null）
+      const refLow = low !== null ? low : dataMin
+      const refHigh = high !== null ? high : dataMax
+
+      // Y轴范围：取数据范围和参考区间的并集，再留10%边距
+      let yMin = Math.min(dataMin, refLow)
+      let yMax = Math.max(dataMax, refHigh)
+      const margin = (yMax - yMin) * 0.1 || 5  // 如果差为0，给个默认边距
+      yMin = Math.max(0, yMin - margin)  // 如果最小值小于0，则从0开始
+      yMax = yMax + margin
+
+      // 构建参考区间标记线（去重）
+      const markLineData = []
+      const addedValues = new Set()
+      if (high !== null && !addedValues.has(high)) {
+        markLineData.push({
+          yAxis: high,
+          name: `上限${high}`,
+          lineStyle: { color: '#ee6666', type: 'dashed', width: 2 }
+        })
+        addedValues.add(high)
+      }
+      if (low !== null && !addedValues.has(low)) {
+        markLineData.push({
+          yAxis: low,
+          name: `下限${low}`,
+          lineStyle: { color: '#ee6666', type: 'dashed', width: 2 }
+        })
+        addedValues.add(low)
+      }
+
+      const markAreaData = []
+      if (low !== null && high !== null && low < high) {
+        markAreaData.push([
+          { yAxis: low, itemStyle: { color: 'rgba(0,180,0,0.06)' } },
+          { yAxis: high }
+        ])
+      }
+
+      const option = {
+        title: {
+          text: `${name} 趋势监测`,
+          subtext: low !== null && high !== null ? `参考区间 ${low} ~ ${high} ${unit || ''}` : '',
+          left: 'center',
+          textStyle: { fontSize: 18, fontWeight: 'bold' },
+          subtextStyle: { fontSize: 13, color: '#888' }
+        },
+        tooltip: {
+          trigger: 'axis',
+          formatter: function(params) {
+            let res = `<strong>${params[0].axisValue}</strong><br/>`
+            params.forEach(p => {
+              res += `${p.marker} ${p.seriesName}：${p.value} ${unit || ''}<br/>`
+            })
+            return res
+          }
+        },
+        legend: {
+          data: [name],
+          bottom: 0,
+          icon: 'roundRect',
+          itemWidth: 20
+        },
+        xAxis: {
+          type: 'category',
+          data: dates,
+          axisLabel: { rotate: 20, fontSize: 12 },
+          boundaryGap: false
+        },
+        yAxis: {
+          type: 'value',
+          min: yMin,
+          max: yMax,
+          splitLine: { lineStyle: { type: 'dashed', color: '#eee' } },
+          axisLabel: {
+            formatter: function(value) {
+              return unit ? value + ' ' + unit : value
+            }
+          }
+        },
+        series: [{
+          name: name,
+          type: 'line',
+          data: values,
+          symbol: 'circle',
+          symbolSize: 8,
+          lineStyle: { color: '#409EFF', width: 3 },
+          areaStyle: { color: 'rgba(64,158,255,0.15)' },
+          // 显示数值标签（数据点少于10个时）
+          label: {
+            show: values.length <= 10,
+            position: 'top',
+            fontSize: 11,
+            color: '#303133',
+            formatter: function(params) {
+              return params.value
+            }
+          },
+          markLine: {
+            silent: true,
+            data: markLineData,
+            label: {
+              formatter: function(params) {
+                return params.name + ' ' + params.value
+              },
+              position: 'insideEndTop',
+              fontSize: 12,
+              color: '#ee6666'
+            }
+          },
+          markArea: {
+            silent: true,
+            data: markAreaData
+          }
+        }]
+      }
+
+      chart.setOption(option, true)
+      chart.resize()
+      setTimeout(() => {
+        chart.resize()
+      }, 200)
+    },
+    // ========== 关闭图表弹窗 ==========
+    closeChart() {
+      if (this.chartDialog.chartInstance) {
+        this.chartDialog.chartInstance.dispose()
+        this.chartDialog.chartInstance = null
+      }
+    },
     // ========== 加载数据 ==========
     async loadData() {
       const userId = this.queryUserId
@@ -334,7 +565,7 @@ export default {
     // ========== 数据转换（透视表） ==========
     transformData() {
       if (!this.originalData || this.originalData.length === 0) {
-        this.transformedData = {columns: [], data: []}
+        this.transformedData = { columns: [], data: [] }
         return
       }
 
@@ -461,7 +692,7 @@ export default {
       request({
         url: '/excel/download',
         method: 'get',
-        params: {type: type},
+        params: { type: type },
         responseType: 'blob'
       }).then(res => {
         const blob = new Blob([res], {
@@ -481,6 +712,12 @@ export default {
       })
     },
 
+    /**
+     * 判断值是否在参考区间内
+     * @param {string} value - 实际值
+     * @param {string} refRange - 参考区间，如 "40~75" 或 "5~" 或 "~5" 或 "~"
+     * @returns {boolean} true=在区间内（绿色），false=超出区间（红色）
+     */
     isValueInRange(value, refRange) {
       if (!value || value === '' || value === '-') return true
       if (!refRange || refRange === '' || refRange === '~' || refRange === '-') return true
@@ -522,7 +759,7 @@ export default {
       }
 
       const inRange = this.isValueInRange(value, refRange)
-      return inRange ? '#67C23A' : '#F56C6C'
+      return inRange ? '#67C23A' : '#F56C6C' // 绿色 / 红色
     }
   }
 }
