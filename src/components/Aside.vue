@@ -14,12 +14,17 @@
       <!-- ===== 根据角色动态渲染数据中心 ===== -->
       <el-menu-item v-if="userRole === 1" index="/doctorDashboard">
         <i class="el-icon-document"></i>
-        <span slot="title" style="color: #fff">数据中心</span>
+        <span slot="title" style="color: #fff">抽血数据大屏</span>
       </el-menu-item>
 
       <el-menu-item v-if="userRole === 2" index="/patientDashboard">
         <i class="el-icon-document"></i>
-        <span slot="title" style="color: #fff">个人数据中心</span>
+        <span slot="title" style="color: #fff">个人抽血数据大屏</span>
+      </el-menu-item>
+
+      <el-menu-item v-if="userRole === 2" index="/user">
+        <i class="el-icon-document"></i>
+        <span slot="title" style="color: #fff">个人信息</span>
       </el-menu-item>
 
       <!-- ===== 用户菜单（所有角色可见） ===== -->
@@ -36,7 +41,7 @@
           <i class="el-icon-user"></i>
           <span slot="title" style="color: #fff">添加用户</span>
         </el-menu-item>
-        <el-menu-item index="/patientDashboard">
+        <el-menu-item index="/user">
           <i class="el-icon-document"></i>
           <span slot="title" style="color: #fff">个人信息</span>
         </el-menu-item>
