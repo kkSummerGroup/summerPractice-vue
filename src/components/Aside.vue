@@ -1,7 +1,8 @@
 <template>
   <div class="menu-container">
     <div class="logo">
-      <h2>🔬 检验系统</h2>
+      <h2>☁️云知康🔬</h2>
+      <h2>检验指标可视化系统</h2>
     </div>
 
     <el-menu
@@ -13,17 +14,17 @@
     >
       <!-- ===== 根据角色动态渲染数据中心 ===== -->
       <el-menu-item v-if="userRole === 1" index="/doctorDashboard">
-        <i class="el-icon-document"></i>
+        <i class="el-icon-data-line"></i>
         <span slot="title" style="color: #fff">抽血数据大屏</span>
       </el-menu-item>
 
       <el-menu-item v-if="userRole === 2" index="/patientDashboard">
-        <i class="el-icon-document"></i>
+        <i class="el-icon-data-line"></i>
         <span slot="title" style="color: #fff">个人抽血数据大屏</span>
       </el-menu-item>
 
       <el-menu-item v-if="userRole === 2" index="/user">
-        <i class="el-icon-document"></i>
+        <i class="el-icon-s-custom"></i>
         <span slot="title" style="color: #fff">个人信息</span>
       </el-menu-item>
 
@@ -33,17 +34,18 @@
           <i class="el-icon-s-custom"></i>
           <span>用户</span>
         </template>
+        <el-menu-item index="/user">
+          <i class="el-icon-document"></i>
+          <span slot="title" style="color: #fff">个人信息</span>
+        </el-menu-item>
         <el-menu-item index="/userView">
           <i class="el-icon-user-solid"></i>
           <span slot="title" style="color: #fff">用户信息</span>
         </el-menu-item>
         <el-menu-item index="/addUser">
           <i class="el-icon-user"></i>
+          <i class="el-icon-plus"></i>
           <span slot="title" style="color: #fff">添加用户</span>
-        </el-menu-item>
-        <el-menu-item index="/user">
-          <i class="el-icon-document"></i>
-          <span slot="title" style="color: #fff">个人信息</span>
         </el-menu-item>
       </el-submenu>
 
@@ -60,11 +62,11 @@
         </template>
         <el-menu-item index="/bloodTestResult">
           <i class="el-icon-document-copy"></i>
-          <span slot="title" style="color: #fff">抽血结果</span>
+          <span slot="title" style="color: #fff">抽血结果上传</span>
         </el-menu-item>
         <el-menu-item index="/bloodTestProject">
           <i class="el-icon-document"></i>
-          <span slot="title" style="color: #fff">抽血项目</span>
+          <span slot="title" style="color: #fff">抽血项目管理</span>
         </el-menu-item>
       </el-submenu>
 
@@ -97,7 +99,7 @@
 
       <!-- ===== 退出登录 ===== -->
       <div class="logout-section">
-        <el-menu-item index="/login" @click="handleLogout">
+        <el-menu-item @click="handleLogout">
           <i class="el-icon-switch-button"></i>
           <span slot="title" style="color: #fff">退出登录</span>
         </el-menu-item>
@@ -151,8 +153,9 @@ export default {
 }
 
 .logo {
-  height: 60px;
+  height: 100px;
   display: flex;
+  flex-direction: column;   /* 垂直排列 */
   align-items: center;
   justify-content: center;
   color: #fff;

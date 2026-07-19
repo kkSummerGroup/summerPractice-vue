@@ -7,7 +7,7 @@ const routes = [
     path: '/login',
     name: 'login',
     meta: {
-      title: '登录',
+      title: '云知康检验指标可视化-登录',
       requiresAuth: false
     },
     component: () => import('../views/Login.vue')
@@ -29,7 +29,7 @@ const routes = [
         path: '/doctorDashboard',
         name: 'doctorDashboard',
         meta: {
-          title: '数据中心',
+          title: '云知康检验指标可视化-数据中心',
           requiresAuth: true,
           roles: [1]  // 👈 只有 role=1 可见
         },
@@ -39,7 +39,7 @@ const routes = [
         path: '/patientDashboard',
         name: 'patientDashboard',
         meta: {
-          title: '数据中心',
+          title: '云知康检验指标可视化-数据中心',
           requiresAuth: true,
           roles: [2]  // 👈 只有 role=2 可见
         },
@@ -49,7 +49,7 @@ const routes = [
         path: '/user',
         name: 'user',
         meta: {
-          title: '个人信息',
+          title: '云知康检验指标可视化-个人信息',
           requiresAuth: true,
         },
         component: () => import('../views/User.vue')
@@ -59,7 +59,7 @@ const routes = [
         path: '/userView',
         name: 'userView',
         meta: {
-          title: '用户信息',
+          title: '云知康检验指标可视化-用户信息',
           requiresAuth: true
         },
         component: () => import('../views/UserView.vue')
@@ -68,7 +68,7 @@ const routes = [
         path: '/addUser',
         name: 'addUser',
         meta: {
-          title: '添加用户',
+          title: '云知康检验指标可视化-添加用户',
           requiresAuth: true
         },
         component: () => import('../views/AddUser.vue')
@@ -77,7 +77,7 @@ const routes = [
         path: '/bloodTestResult',
         name: 'bloodTestResult',
         meta: {
-          title: '抽血结果',
+          title: '云知康检验指标可视化-抽血结果',
           requiresAuth: true
         },
         component: () => import('../views/BloodTestResult.vue')
@@ -86,7 +86,7 @@ const routes = [
         path: '/bloodTestProject',
         name: 'bloodTestProject',
         meta: {
-          title: '抽血项目',
+          title: '云知康检验指标可视化-抽血项目',
           requiresAuth: true
         },
         component: () => import('../views/BloodTestProject.vue')
@@ -95,7 +95,7 @@ const routes = [
         path: '/addMedicine',
         name: 'addMedicine',
         meta: {
-          title: '添加药物',
+          title: '云知康检验指标可视化-添加药物',
           requiresAuth: true
         },
         component: () => import('../views/AddMedicine.vue')
@@ -104,7 +104,7 @@ const routes = [
         path: '/medicine',
         name: 'medicine',
         meta: {
-          title: '药物',
+          title: '云知康检验指标可视化-药物列表',
           requiresAuth: true
         },
         component: () => import('../views/Medicine.vue')
@@ -113,7 +113,7 @@ const routes = [
         path: '/test',
         name: 'test',
         meta: {
-          title: '测试',
+          title: '云知康检验指标可视化-测试',
           requiresAuth: true
         },
         component: () => import('../views/Test.vue')

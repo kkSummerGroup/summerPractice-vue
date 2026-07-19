@@ -2,7 +2,8 @@
   <div class="login-container">
     <div class="login-box">
       <div class="login-header">
-        <h1>🔬 检验系统</h1>
+        <h1>☁️云知康🔬</h1>
+        <h1>检验指标可视化系统</h1>
         <p>登录以继续使用</p>
       </div>
 
