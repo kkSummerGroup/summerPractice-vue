@@ -44,7 +44,6 @@
         </el-menu-item>
         <el-menu-item index="/addUser">
           <i class="el-icon-user"></i>
-          <i class="el-icon-plus"></i>
           <span slot="title" style="color: #fff">添加用户</span>
         </el-menu-item>
       </el-submenu>
@@ -81,21 +80,21 @@
           <i class="el-icon-hot-water"></i>
           <span>药物</span>
         </template>
-        <el-menu-item index="/addMedicine">
+        <el-menu-item index="/medicineManage">
           <i class="el-icon-document-add"></i>
-          <span slot="title" style="color: #fff">添加药物</span>
+          <span slot="title" style="color: #fff">药物管理</span>
         </el-menu-item>
-        <el-menu-item index="/medicine">
+        <el-menu-item index="/userMedicine">
           <i class="el-icon-water-cup"></i>
-          <span slot="title" style="color: #fff">药物列表</span>
+          <span slot="title" style="color: #fff">患者用药</span>
         </el-menu-item>
       </el-submenu>
 
       <!-- ===== 测试菜单（仅 role=1 可见） ===== -->
-      <el-menu-item v-if="userRole === 1" index="/test">
-        <i class="el-icon-document"></i>
-        <span slot="title" style="color: #fff">测试</span>
-      </el-menu-item>
+<!--      <el-menu-item v-if="userRole === 1" index="/test">-->
+<!--        <i class="el-icon-document"></i>-->
+<!--        <span slot="title" style="color: #fff">测试</span>-->
+<!--      </el-menu-item>-->
 
       <!-- ===== 退出登录 ===== -->
       <div class="logout-section">

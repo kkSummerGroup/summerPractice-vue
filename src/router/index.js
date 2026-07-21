@@ -92,13 +92,22 @@ const routes = [
         component: () => import('../views/BloodTestProject.vue')
       },
       {
-        path: '/addMedicine',
-        name: 'addMedicine',
+        path: '/medicineManage',
+        name: 'medicineManage',
         meta: {
-          title: '云知康检验指标可视化-添加药物',
+          title: '云知康检验指标可视化-药物管理',
           requiresAuth: true
         },
-        component: () => import('../views/AddMedicine.vue')
+        component: () => import('../views/MedicineManage.vue')
+      },
+      {
+        path: '/userMedicine',
+        name: 'userMedicine',
+        meta: {
+          title: '云知康检验指标可视化-患者用药',
+          requiresAuth: true
+        },
+        component: () => import('../views/UserMedicine.vue')
       },
       {
         path: '/medicine',

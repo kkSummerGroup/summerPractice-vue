@@ -392,107 +392,83 @@ export default {
         // 获取该项目的参考区间
         const { low, high } = this.parseRefRange(items[0]?.refRange)
 
-        // 从最近一次开始，向前找连续异常的记录（按次数连续）
+        // 从最近一次开始，向前找连续异常的记录
         let consecutiveAbnormal = []
-        // 从后往前遍历（从最近到最旧）
         for (let i = items.length - 1; i >= 0; i--) {
           const record = items[i]
           const isAbnormal = record.status === 'abnormal'
           if (isAbnormal) {
             consecutiveAbnormal.push(record)
           } else {
-            // 遇到正常记录，连续中断，停止向前
-            break
+            break  // 遇到正常记录，连续中断
           }
         }
 
-        // 如果连续异常次数 < 2，跳过
+        // ✅ 只要连续异常 >= 2 次就算趋势
         if (consecutiveAbnormal.length < 2) return
 
-        // 反转，使日期从旧到新（便于判断趋势）
+        // 反转，使日期从旧到新
         consecutiveAbnormal.reverse()
 
-        // 检查数值是否持续远离参考区间（连续上升或连续下降）
-        let direction = null
-        let allConsistent = true
+        // 判断整体趋势方向（首尾对比）
+        const firstVal = parseFloat(consecutiveAbnormal[0].value)
+        const lastVal = parseFloat(consecutiveAbnormal[consecutiveAbnormal.length - 1].value)
+        const firstIsHigh = high !== null && firstVal >= high
+        const firstIsLow = low !== null && firstVal <= low
+        const lastIsHigh = high !== null && lastVal >= high
+        const lastIsLow = low !== null && lastVal <= low
 
-        for (let i = 1; i < consecutiveAbnormal.length; i++) {
-          const prev = parseFloat(consecutiveAbnormal[i - 1].value)
-          const curr = parseFloat(consecutiveAbnormal[i].value)
-          if (isNaN(prev) || isNaN(curr)) {
-            allConsistent = false
-            break
-          }
+        // 判断是哪一侧异常
+        let side = ''
+        let displayDirection = ''
+        let direction = ''
 
-          // 判断当前是偏高还是偏低（相对于参考区间）
-          const isHigh = high !== null && prev > high && curr > high
-          const isLow = low !== null && prev < low && curr < low
-
-          // 如果不在同一侧（有的偏高有的偏低），不算连续趋势
-          if (!isHigh && !isLow) {
-            allConsistent = false
-            break
-          }
-
-          // 判断方向：是否持续远离
-          let currentDir = null
-          if (isHigh) {
-            // 偏高：数值越大表示越远离
-            currentDir = curr > prev ? 'up' : (curr < prev ? 'down' : null)
-          } else if (isLow) {
-            // 偏低：数值越小表示越远离
-            currentDir = curr < prev ? 'down' : (curr > prev ? 'up' : null)
-          }
-
-          if (currentDir === null) {
-            allConsistent = false
-            break
-          }
-
-          if (direction === null) {
-            direction = currentDir
-          } else if (direction !== currentDir) {
-            // 方向不一致，中断
-            allConsistent = false
-            break
-          }
-        }
-
-        // 只有持续远离（方向一致）且全部在正常范围外，才计入趋势
-        if (allConsistent && direction !== null) {
-          const recentValues = consecutiveAbnormal.map(item => ({
-            date: item.date,
-            value: item.value,
-            unit: item.unit || '',
-            status: item.status
-          }))
-
-          // direction 存储的是相对于参考区间的远离方向
-          // up = 越来越高（偏高时）或 越来越低（偏低时但数值上升，即靠近正常值？这里需要修正）
-          // 修正：统一用 'up' 表示数值朝远离参考区间的方向变化
-          const firstVal = parseFloat(consecutiveAbnormal[0].value)
-          const lastVal = parseFloat(consecutiveAbnormal[consecutiveAbnormal.length - 1].value)
-          const isHighSide = high !== null && firstVal > high && lastVal > high
-          const isLowSide = low !== null && firstVal < low && lastVal < low
-
-          let displayDirection = ''
-          if (isHighSide) {
-            displayDirection = lastVal > firstVal ? '↑ 持续升高' : '↓ 持续降低'
-          } else if (isLowSide) {
-            displayDirection = lastVal < firstVal ? '↓ 持续降低' : '↑ 持续升高'
+        if (firstIsHigh && lastIsHigh) {
+          // 一直在偏高侧
+          side = '偏高'
+          if (lastVal > firstVal) {
+            displayDirection = '↑ 持续升高'
+            direction = 'up'
+          } else if (lastVal === firstVal) {
+            displayDirection = '→ 持续偏高（稳定）'
+            direction = 'stable'
           } else {
-            // 跨侧或无法判断，跳过
-            return
+            displayDirection = '↓ 持续降低（仍偏高）'
+            direction = 'down'
           }
-
-          trendList.push({
-            name,
-            direction: isHighSide ? (lastVal > firstVal ? 'up' : 'down') : (lastVal < firstVal ? 'down' : 'up'),
-            count: consecutiveAbnormal.length,
-            recentValues,
-            displayDirection
-          })
+        } else if (firstIsLow && lastIsLow) {
+          // 一直在偏低侧
+          side = '偏低'
+          if (lastVal < firstVal) {
+            displayDirection = '↓ 持续降低'
+            direction = 'down'
+          } else if (lastVal === firstVal) {
+            displayDirection = '→ 持续偏低（稳定）'
+            direction = 'stable'
+          } else {
+            displayDirection = '↑ 持续升高（仍偏低）'
+            direction = 'up'
+          }
+        } else {
+          // 跨侧或无法判断（比如第一次异常偏高，最后一次异常偏低），跳过
+          return
         }
+
+        const recentValues = consecutiveAbnormal.map(item => ({
+          date: item.date,
+          value: item.value,
+          unit: item.unit || '',
+          status: item.status
+        }))
+
+        trendList.push({
+          name,
+          side,              // '偏高' 或 '偏低'
+          direction,
+          count: consecutiveAbnormal.length,
+          recentValues,
+          displayDirection
+        })
       })
 
       // 按连续次数从高到低排序

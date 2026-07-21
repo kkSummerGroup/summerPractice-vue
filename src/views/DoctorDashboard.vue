@@ -83,7 +83,7 @@
           <div slot="header" class="chart-header">
             <span class="chart-title">🏥 患者健康状况</span>
           </div>
-          <div ref="healthChart" class="chart-container"></div>
+          <div ref="healthChart" class="chart-container" style="width: 100%;height: 240px"></div>
         </el-card>
       </el-col>
       <el-col :span="12">
@@ -94,8 +94,10 @@
           <el-table
               :data="concernPatients"
               size="small"
-              style="width: 100%;height: 200px"
+              style="width: 100%;height: 240px"
               :header-cell-style="{ background: '#f5f7fa', fontWeight: 'bold' }"
+              @row-click="handleRowClick"
+              :row-style="{ cursor: 'pointer' }"
           >
             <el-table-column prop="rank" label="#" width="50" align="center">
               <template slot-scope="{ row }">
@@ -105,7 +107,7 @@
               </template>
             </el-table-column>
             <el-table-column prop="username" label="患者" />
-            <el-table-column prop="abnormalCount" label="异常次数" width="80" align="center">
+            <el-table-column prop="abnormalCount" label="异常指标数" width="80" align="center">
               <template slot-scope="{ row }">
                 <el-tag :type="row.abnormalCount >= 4 ? 'danger' : 'warning'" size="small">
                   {{ row.abnormalCount }}
@@ -114,9 +116,6 @@
             </el-table-column>
             <el-table-column prop="abnormalItems" label="主要异常" show-overflow-tooltip />
           </el-table>
-          <div v-if="concernPatients.length === 0" class="empty-tip">
-            <i class="el-icon-check"></i> 暂无异常患者，继续保持！
-          </div>
         </el-card>
       </el-col>
     </el-row>
@@ -227,6 +226,7 @@ export default {
       try {
         const res = await request.get('/bloodTest/patient/concern')
         this.concernPatients = res || []
+        console.log(this.concernPatients)
       } catch (error) {
         console.error('加载关注患者数据失败:', error)
       }
@@ -456,7 +456,21 @@ export default {
       this.frequencyInstance?.resize()
       this.activityInstance?.resize()
       this.healthInstance?.resize()
+    },
+
+    // ✅ 点击行跳转到用户药品页面
+    handleRowClick(row) {
+      console.log(row)
+      // 跳转到 UserMedicine 页面，并传递 userId 和 username
+      this.$router.push({
+        path: '/userMedicine',  // 替换成您的实际路由路径
+        query: {
+          userId: row.user_id,     // 需要确认 row 中有 userId 字段
+          username: row.username
+        }
+      })
     }
+
   }
 }
 </script>

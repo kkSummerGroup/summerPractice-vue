@@ -119,7 +119,6 @@
 
 <script>
 import request from '@/api'
-import {API_BASE_URL} from '@/tool/config';
 
 export default {
   data() {
@@ -249,7 +248,6 @@ export default {
     },
 
     async updateUser() {
-      // 包装 validate 为 Promise
       const isValid = await new Promise((resolve) => {
         this.$refs.userForm.validate((valid) => {
           resolve(valid);
@@ -257,7 +255,7 @@ export default {
       });
       if (isValid) {
         try {
-          await axios.post(`${API_BASE_URL}/user/saveUser`, this.userData);
+          await request.post('/user/saveUser', this.userData);  // axios 改成 request
           console.log(this.userData)
           this.cancelUpdate();
           await this.getAllUserData();
@@ -283,7 +281,7 @@ export default {
 
     async deleteUser() {
       try {
-        await axios.delete(`${API_BASE_URL}/user/deleteUser/${this.userIdToDelete}`);
+        await request.delete(`/user/deleteUser/${this.userIdToDelete}`);  // axios 改成 request
         await this.getAllUserData();
         this.cancelDelete()
       } catch (error) {
