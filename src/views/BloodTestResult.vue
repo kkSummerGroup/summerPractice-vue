@@ -13,9 +13,9 @@
                 type="primary"
                 @click="downloadExcel(category.projectClassName)"
             >
-              下载{{ category.projectClassName }}
+              下载{{ category.projectClassName }}模板表
             </el-button>
-            <el-button type="info" @click="uploadDialogVisible = true">上传检验数据</el-button>
+            <el-button type="success" @click="uploadDialogVisible = true">上传检验数据</el-button>
           </div>
           <div class="toolbar-right">
             <el-tag v-if="currentUser" type="success">
@@ -425,6 +425,10 @@ export default {
       const margin = (yMax - yMin) * 0.1 || 5
       yMin = Math.max(0, yMin - margin)
       yMax = yMax + margin
+
+      // ===== 保留2位小数 =====
+      yMin = Math.round(yMin * 100) / 100
+      yMax = Math.round(yMax * 100) / 100
 
       const markLineData = []
       const addedValues = new Set()
